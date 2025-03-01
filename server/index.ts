@@ -18,9 +18,15 @@ app.use(
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
+  windowMs: 60 * 1000, // 1 minute
+  max: parseInt(process.env.MAX_REQUESTS_PER_MINUTE || "100"),
+  handler: (req, res) => {
+    res
+      .status(429)
+      .json({ error: "Too many requests, please try again later" });
+  },
+  skipSuccessfulRequests: true, // Only count failed requests
+  keyGenerator: (req) => req.ip || (req.headers["x-forwarded-for"] as string),
 });
 
 app.use(limiter);

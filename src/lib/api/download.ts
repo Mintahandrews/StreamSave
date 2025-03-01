@@ -3,6 +3,7 @@ import type { VideoFormat, Platform } from "@/types";
 import { getCurrentUser } from "./auth";
 import { isSupabaseConfigured } from "../supabase";
 import { supabase } from "../supabase";
+import { DownloadError, NetworkError } from "../errors";
 
 const DAILY_LIMIT_FREE = 3;
 const FORMAT_LIMITS: Record<string, string[]> = {
@@ -81,11 +82,7 @@ export async function downloadVideo(
   platform: Platform,
   onProgress?: (progress: number) => void
 ): Promise<string> {
-  if (!navigator.onLine) {
-    throw new Error(
-      "No internet connection. Please check your network and try again."
-    );
-  }
+  NetworkError.checkConnection();
 
   if (!url || !format || !platform) {
     throw new Error("Missing required parameters");
@@ -102,20 +99,25 @@ export async function downloadVideo(
 
       const stats = await getDownloadStats();
       if (!stats) {
-        throw new Error("Failed to fetch download stats. Please try again.");
+        throw new DownloadError(
+          "Failed to fetch download stats",
+          "STATS_ERROR"
+        );
       }
 
       if (!stats.is_premium && stats.downloads_today >= DAILY_LIMIT_FREE) {
-        throw new Error(
-          "Daily download limit reached. Upgrade to premium for unlimited downloads!"
+        throw new DownloadError(
+          "Daily download limit reached. Upgrade to premium for unlimited downloads!",
+          "LIMIT_EXCEEDED"
         );
       }
 
       const allowedFormats =
         FORMAT_LIMITS[stats.is_premium ? "premium" : "free"];
       if (!allowedFormats.includes(format.quality)) {
-        throw new Error(
-          `${format.quality} quality is only available for premium users`
+        throw new DownloadError(
+          `${format.quality} quality is only available for premium users`,
+          "PREMIUM_REQUIRED"
         );
       }
 

@@ -2,7 +2,14 @@ import axios, { AxiosError } from "axios";
 import type { VideoInfo, Platform } from "@/types";
 import { axiosConfig, ENDPOINTS } from "./config";
 
-const axiosInstance = axios.create(axiosConfig);
+const axiosInstance = axios.create({
+  ...axiosConfig,
+  headers: {
+    ...axiosConfig.headers,
+    "X-RapidAPI-Key": import.meta.env.VITE_RAPID_API_KEY,
+    "X-RapidAPI-Host": import.meta.env.VITE_RAPID_API_HOST,
+  },
+});
 
 export class VideoService {
   private static async request<T>(
@@ -10,11 +17,11 @@ export class VideoService {
     params: Record<string, string> = {}
   ) {
     const retryConfig = {
-      retries: 3,
+      retries: 5,
       backoff: {
-        initial: 1000,
-        multiplier: 2,
-        maxDelay: 10000,
+        initial: 500,
+        multiplier: 1.5,
+        maxDelay: 15000,
       },
     };
 
@@ -22,8 +29,21 @@ export class VideoService {
 
     if (!navigator.onLine) {
       throw new Error(
-        "No internet connection. Please check your network and try again."
+        "No internet connection detected. Please check your network connection and try again when you're back online."
       );
+    }
+
+    // Add connection quality check
+    if (navigator.connection && "effectiveType" in navigator.connection) {
+      const connection = navigator.connection as any;
+      if (
+        connection.effectiveType === "slow-2g" ||
+        connection.effectiveType === "2g"
+      ) {
+        console.warn(
+          "Slow network connection detected. Request may take longer than usual."
+        );
+      }
     }
 
     for (let attempt = 0; attempt <= retryConfig.retries; attempt++) {
@@ -35,25 +55,11 @@ export class VideoService {
             "X-Request-ID": crypto.randomUUID(),
           },
           timeout: attempt === 0 ? 5000 : axiosConfig.timeout,
+          validateStatus: (status) => status === 200,
         });
 
-        if (response.status === 429) {
-          const retryAfter = parseInt(response.headers["retry-after"] || "5");
-          await new Promise((resolve) =>
-            setTimeout(resolve, retryAfter * 1000)
-          );
-          continue;
-        }
-
-        if (response.status === 404) {
-          throw new Error("Video not found or has been removed.");
-        }
-
-        if (response.status !== 200) {
-          throw new Error(
-            (response.data as any)?.message ||
-              `Request failed with status ${response.status}`
-          );
+        if (!response.data) {
+          throw new Error("Invalid response received from the server");
         }
 
         return response.data;

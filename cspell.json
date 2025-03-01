@@ -1,0 +1,14 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": ["VITE", "SUPABASE", "supabase"],
+  "ignorePaths": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "*.min.*",
+    "package-lock.json",
+    "public/**"
+  ]
+}

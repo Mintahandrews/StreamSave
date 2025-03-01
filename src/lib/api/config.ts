@@ -1,5 +1,6 @@
 const API_CONFIG = {
-  timeout: 10000,
+  baseURL: "https://all-media-downloader1.p.rapidapi.com",
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",

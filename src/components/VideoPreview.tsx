@@ -20,8 +20,9 @@ export function VideoPreview({ video }: VideoPreviewProps) {
   const [selectedFormat, setSelectedFormat] =
     React.useState<VideoFormat | null>(video.formats?.[0] ?? null);
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
-  const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state: { user: any }) => state.user);
   const maxRetries = 3;
+  const [retryCount, setRetryCount] = React.useState(0);
 
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -44,9 +45,23 @@ export function VideoPreview({ video }: VideoPreviewProps) {
 
     if (!isOnline) {
       setError(
-        "No internet connection. Please check your network and try again."
+        "You are currently offline. Please check your internet connection and try again when you're back online."
       );
       return;
+    }
+
+    // Check for slow connection
+    if (navigator.connection && "effectiveType" in navigator.connection) {
+      const connection = navigator.connection as any;
+      if (
+        connection.effectiveType === "slow-2g" ||
+        connection.effectiveType === "2g"
+      ) {
+        setError(
+          "Slow network connection detected. The download may take longer than usual."
+        );
+        return;
+      }
     }
 
     if (isSupabaseConfigured() && !user) {
@@ -56,6 +71,7 @@ export function VideoPreview({ video }: VideoPreviewProps) {
 
     setDownloading(true);
     setError("");
+    setRetryCount(0);
 
     try {
       const downloadUrl = await downloadVideo(
@@ -91,8 +107,10 @@ export function VideoPreview({ video }: VideoPreviewProps) {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Download failed";
+      const newRetryCount = retryCount + 1;
+      setRetryCount(newRetryCount);
       setError(
-        `${errorMessage}${retryCount < maxRetries ? " Click to retry." : ""}`
+        `${errorMessage}${newRetryCount < maxRetries ? " Click to retry." : ""}`
       );
     } finally {
       setDownloading(false);
